@@ -1,0 +1,13 @@
+{
+  "name": "verified-wallet-security-poc",
+  "version": "1.0.0",
+  "description": "Critical Vulnerability PoC for Verified Wallet Hackathon",
+  "main": "poc.js",
+  "scripts": {
+    "test": "node poc.js"
+  },
+  "dependencies": {
+    "@verified-network/verified-custody": "latest",
+    "chalk": "^4.1.2"
+  }
+}
