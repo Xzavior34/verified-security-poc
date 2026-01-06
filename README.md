@@ -16,3 +16,5 @@ This repository contains a reproduction script (`poc.js`) utilizing the official
 1. Install dependencies:
    ```bash
    npm install
+```
+node poc.js
